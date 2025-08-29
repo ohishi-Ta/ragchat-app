@@ -1,0 +1,42 @@
+/* Amplify UI  */
+/* Amplify UIカスタムテーマ */
+:root {
+  /* 基本カラーパレット */
+  --amplify-components-authenticator-router-background-color: #fff;
+  --amplify-components-authenticator-router-border-color: #fff;
+  
+  /* モーダル背景色の設定 */
+  --amplify-components-authenticator-modal-background-color: #fff;
+  
+  /* ボタンスタイル */
+  --amplify-components-button-primary-background-color: #1976d2;
+  --amplify-components-button-primary-hover-background-color: #1565c0;
+  --amplify-components-button-primary-focus-background-color: #1565c0;
+  --amplify-components-button-primary-border-color: #1976d2;
+  
+  /* フォームコンポーネント */
+  --amplify-components-fieldcontrol-border-color: #ced4da;
+  --amplify-components-fieldcontrol-focus-border-color: #1976d2;
+  
+  /* タブス */
+  --amplify-components-tabs-item-active-border-color: #1976d2;
+  --amplify-components-tabs-item-active-color: #1976d2;
+  
+  /* リンク */
+  --amplify-components-link-color: #1976d2;
+  --amplify-components-link-hover-color: #1565c0;
+}
+
+/* モーダル表示時のスタイル調整 */
+.amplify-authenticator[data-variation="modal"] {
+  background-color: rgba(0, 0, 0, 0.5) !important; /* デフォルト背景色を上書き */
+}
+
+button:focus, button:focus-visible{
+    outline: none!important;
+}
+
+input:focus{
+    box-shadow:none!important;
+    border: 1px solid #000;
+}
