@@ -8,19 +8,40 @@
     "build": "tsc",
     "watch": "tsc -w",
     "test": "jest",
-    "cdk": "cdk"
+    "cdk": "cdk",
+    "deploy:dev": "cdk deploy --all -c environment=dev",
+    "deploy:stg": "cdk deploy --all -c environment=stg",
+    "deploy:prod": "cdk deploy --all -c environment=prod --require-approval broadening",
+    "destroy:dev": "cdk destroy --all -c environment=dev",
+    "destroy:stg": "cdk destroy --all -c environment=stg",
+    "destroy:prod": "echo 'Production destroy requires manual confirmation' && cdk destroy --all -c environment=prod",
+    "synth:dev": "cdk synth -c environment=dev",
+    "synth:stg": "cdk synth -c environment=stg",
+    "synth:prod": "cdk synth -c environment=prod",
+    "diff:dev": "cdk diff --all -c environment=dev",
+    "diff:stg": "cdk diff --all -c environment=stg",
+    "diff:prod": "cdk diff --all -c environment=prod",
+    "list": "cdk list",
+    "bootstrap:dev": "cdk bootstrap -c environment=dev",
+    "bootstrap:stg": "cdk bootstrap -c environment=stg",
+    "bootstrap:prod": "cdk bootstrap -c environment=prod"
   },
   "devDependencies": {
+    "@types/aws-lambda": "^8.10.152",
     "@types/jest": "^29.5.14",
     "@types/node": "22.7.9",
+    "@types/pg": "^8.15.5",
+    "aws-cdk": "2.1020.2",
     "jest": "^29.7.0",
     "ts-jest": "^29.2.5",
-    "aws-cdk": "2.1020.2",
     "ts-node": "^10.9.2",
     "typescript": "~5.6.3"
   },
   "dependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.864.0",
     "aws-cdk-lib": "2.202.0",
-    "constructs": "^10.0.0"
+    "aws-lambda": "^1.0.7",
+    "constructs": "^10.0.0",
+    "pg": "^8.16.3"
   }
 }

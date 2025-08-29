@@ -16,7 +16,6 @@ export interface AuroraConstructProps {
 export class AuroraConstruct extends Construct {
   public readonly cluster: rds.DatabaseCluster;
   public readonly masterSecret: secretsmanager.ISecret;
-  public readonly appUserSecret: secretsmanager.Secret;
   public readonly subnetGroup: rds.SubnetGroup;
 
   constructor(scope: Construct, id: string, props: AuroraConstructProps) {
@@ -25,7 +24,8 @@ export class AuroraConstruct extends Construct {
     const { vpc, securityGroup, config } = props;
 
     // サブネットグループ作成
-    this.subnetGroup = new rds.SubnetGroup(this, config.aurora.naming.subnetGroupName, {
+    this.subnetGroup = new rds.SubnetGroup(this, 'SubnetGroup', {
+      subnetGroupName: config.aurora.naming.subnetGroupName,
       description: 'Aurora Serverless v2 subnet group',
       vpc: vpc,
       vpcSubnets: {
@@ -34,7 +34,8 @@ export class AuroraConstruct extends Construct {
     });
 
     // マスターユーザー用シークレット
-    const masterSecret = new secretsmanager.Secret(this, config.aurora.naming.masterSecretName, {
+    const masterSecret = new secretsmanager.Secret(this, 'MasterSecret', {
+      secretName: config.aurora.naming.masterSecretName,
       description: 'Aurora master user credentials',
       generateSecretString: {
         secretStringTemplate: JSON.stringify({ 
@@ -49,7 +50,9 @@ export class AuroraConstruct extends Construct {
     this.masterSecret = masterSecret;
 
     // Auroraクラスター作成
-    this.cluster = new rds.DatabaseCluster(this, config.aurora.naming.clusterName, {
+    this.cluster = new rds.DatabaseCluster(this, 'Cluster', {
+      clusterIdentifier: config.aurora.naming.clusterName,
+      
       // エンジン設定
       engine: rds.DatabaseClusterEngine.auroraPostgres({
         version: rds.AuroraPostgresEngineVersion.VER_16_6,
@@ -86,7 +89,7 @@ export class AuroraConstruct extends Construct {
       },
 
       // メンテナンス設定
-      preferredMaintenanceWindow: 'sun:04:00-sun:05:00', // JST日曜13:00-14:00
+      preferredMaintenanceWindow: 'sun:04:00-sun:05:00',
 
       // CloudWatchログ
       cloudwatchLogsExports: config.aurora.enableCloudwatchLogs 
@@ -100,19 +103,6 @@ export class AuroraConstruct extends Construct {
       removalPolicy: config.environment === 'dev' 
         ? RemovalPolicy.DESTROY 
         : RemovalPolicy.SNAPSHOT,
-    });
-
-    // アプリケーション用ユーザーのシークレット
-    this.appUserSecret = new secretsmanager.Secret(this, config.aurora.naming.appUserSecretName, {
-      description: 'Aurora application user credentials',
-      generateSecretString: {
-        secretStringTemplate: JSON.stringify({ 
-          username: 'bedrock_user' 
-        }),
-        generateStringKey: 'password',
-        excludeCharacters: '"@\\\'/',
-        passwordLength: 32,
-      },
     });
 
     // カスタムタグ設定
