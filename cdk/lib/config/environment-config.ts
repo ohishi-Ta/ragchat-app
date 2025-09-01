@@ -162,8 +162,8 @@ export interface EnvironmentConfig {
 // 環境別のドメイン設定
 const domainConfigs: Record<Environment, { domainName: string; certificateArn: string } | undefined> = {
   dev: {
-    domainName: 'dev.ai.cpinfo.jp',
-    certificateArn: 'arn:aws:acm:us-east-1:794038219704:certificate/7d2d02e3-c835-491a-b616-50b55f738943'
+    domainName: 'dev.ragchat.jp',
+    certificateArn: 'arn:aws:acm:us-east-1:794038219704:certificate/5ba2604f-f890-4e71-8aa4-338a32731728'
   },
   stg: {
     domainName: 'stg.ai.cpinfo.jp', 
