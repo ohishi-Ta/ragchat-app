@@ -107,6 +107,27 @@ export interface EnvironmentConfig {
     trailBucketName: string,
   },
   
+  // CodeBuild設定（新規追加）
+  codebuild: {
+    projectName: string;
+    sourceBucketName: string;
+    serviceRoleName: string;
+    environmentType: string;
+    computeType: string;
+    buildTimeout: number;
+  };
+  
+  // CDK出力キー名（新規追加）
+  outputs: {
+    apiGatewayHttpApiUrl: string;
+    cognitoUserPoolId: string;
+    cognitoUserPoolClientId: string;
+    ragSseStreamFunctionUrl: string;
+    ragGenerateImageFunctionUrl: string;
+    frontBucketName: string;
+    cloudFrontDistributionId: string;
+    customDomainUrl?: string;
+  };
   
   // Lambda Functions設定
   lambda: {
@@ -166,6 +187,11 @@ const commonDefaults = {
       maxChildTokens: 1000,
       overlapTokens: 60,
     },
+  },
+  codebuild: {
+    environmentType: 'LINUX_CONTAINER',
+    computeType: 'BUILD_GENERAL1_MEDIUM',
+    buildTimeout: 60,
   },
   tags: {
     Project: 'ragchat-app',
@@ -272,6 +298,28 @@ export function createConfig(environment: Environment): EnvironmentConfig {
     cloudtrail: {
       trailName: `${environment}-ragchat-cognito-user-enable-events`,
       trailBucketName: `${environment}-ragchat-cloudtrail-cognito-logs`,
+    },
+    
+    // CodeBuild設定（新規追加）
+    codebuild: {
+      projectName: `${environment}-ragchat-frontend-build`,
+      sourceBucketName: `${environment}-ragchat-codebuild-source`,
+      serviceRoleName: `${environment}-ragchat-codebuild-role`,
+      environmentType: commonDefaults.codebuild.environmentType,
+      computeType: commonDefaults.codebuild.computeType,
+      buildTimeout: commonDefaults.codebuild.buildTimeout,
+    },
+    
+    // CDK出力キー名（新規追加）
+    outputs: {
+      apiGatewayHttpApiUrl: 'ApiGatewayHttpApiUrl',
+      cognitoUserPoolId: 'CognitoUserPoolId',
+      cognitoUserPoolClientId: 'CognitoUserPoolClientId',
+      ragSseStreamFunctionUrl: 'RagSseStreamFunctionUrl',
+      ragGenerateImageFunctionUrl: 'RagGenerateImageFunctionUrl',
+      frontBucketName: 'FrontBucketName',
+      cloudFrontDistributionId: 'CloudFrontDistributionId',
+      ...(domainConfigs[environment] ? { customDomainUrl: 'CustomDomainUrl' } : {}),
     },
     
     // Lambda Functions設定

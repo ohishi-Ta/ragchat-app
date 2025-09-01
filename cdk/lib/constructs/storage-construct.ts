@@ -54,16 +54,6 @@ export class StorageConstruct extends Construct {
         : RemovalPolicy.RETAIN,
     });
 
-    // S3 Bucket for Frontend - 設定から命名取得
-    this.frontBucket = new s3.Bucket(this, 'RagFrontBucket', {
-      bucketName: config.s3.frontBucketName,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-      encryption: s3.BucketEncryption.S3_MANAGED,
-      removalPolicy: config.environment === 'dev' 
-        ? RemovalPolicy.DESTROY 
-        : RemovalPolicy.RETAIN,
-    });
-
     // タグ設定
     this.applyTags(config.tags);
   }
