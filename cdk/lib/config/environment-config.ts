@@ -51,7 +51,12 @@ export interface EnvironmentConfig {
     allowedCidrBlocks: string[];
     enableGuardDuty: boolean;
   };
-  
+
+  // CORS
+  cors: {
+  allowedOrigins: string[];
+  };
+
   // Bedrock設定
   bedrock: {
     knowledgeBaseName: string;
@@ -154,51 +159,6 @@ export interface EnvironmentConfig {
   };
 }
 
-// 共通のデフォルト設定
-const commonDefaults = {
-  network: {
-    vpcCidr: '10.0.0.0/16',
-    enableNatGateway: false,
-    availabilityZones: ['ap-northeast-1a', 'ap-northeast-1c'],
-    createVpcEndpoints: true,
-  },
-  aurora: {
-    masterUsername: 'bedrockadmin',
-    minCapacity: 0.5,
-    maxCapacity: 16,
-    enableDataApi: true,
-    deletionProtection: false,
-    backupRetentionDays: 7,
-    enableCloudwatchLogs: true,
-    enablePerformanceInsights: false,
-  },
-  security: {
-    enableVpcFlowLogs: false,
-    allowedCidrBlocks: ['10.0.0.0/16'],
-    enableGuardDuty: false,
-  },
-  bedrock: {
-    embeddingModel: 'amazon.titan-embed-text-v2:0',
-    modelRegion: 'us-west-2',
-    imageGenerationRegion: 'us-east-1',
-    chunkingStrategy: {
-      type: 'HIERARCHICAL' as const,
-      maxParentTokens: 3000,
-      maxChildTokens: 1000,
-      overlapTokens: 60,
-    },
-  },
-  codebuild: {
-    environmentType: 'LINUX_CONTAINER',
-    computeType: 'BUILD_GENERAL1_MEDIUM',
-    buildTimeout: 60,
-  },
-  tags: {
-    Project: 'ragchat-app',
-    ManagedBy: 'cdk',
-  },
-};
-
 // 環境別のドメイン設定
 const domainConfigs: Record<Environment, { domainName: string; certificateArn: string } | undefined> = {
   dev: {
@@ -227,9 +187,13 @@ export function createConfig(environment: Environment): EnvironmentConfig {
     
     // ドメイン設定
     domain: domainConfigs[environment],
-    
+
+    // VPC
     network: {
-      ...commonDefaults.network,
+      vpcCidr: '10.0.0.0/16',
+      enableNatGateway: false,
+      availabilityZones: ['ap-northeast-1a', 'ap-northeast-1c'],
+      createVpcEndpoints: true,
       
       naming: {
         vpcName: `${environment}-ragchat-vpc`,
@@ -239,9 +203,17 @@ export function createConfig(environment: Environment): EnvironmentConfig {
       },
     },
     
+    // DB
     aurora: {
-      ...commonDefaults.aurora,
       databaseName: `${environment}_ragchat_db`,
+      masterUsername: 'bedrockadmin',
+      minCapacity: 0.5,
+      maxCapacity: 16,
+      enableDataApi: true,
+      deletionProtection: false,
+      backupRetentionDays: 7,
+      enableCloudwatchLogs: true,
+      enablePerformanceInsights: false,
       
       naming: {
         clusterName: `${environment}-ragchat-aurora-cluster`,
@@ -249,18 +221,35 @@ export function createConfig(environment: Environment): EnvironmentConfig {
         masterSecretName: `${environment}-ragchat-aurora-secret`,
       },
     },
-    
+
+    // SG
     security: {
-      ...commonDefaults.security,
+      enableVpcFlowLogs: false,
+      allowedCidrBlocks: ['10.0.0.0/16'],
+      enableGuardDuty: false,
     },
-    
+
+    // CORS設定
+    cors: {
+      allowedOrigins: getCorsOrigins(environment),
+    },
+
+    // Bedrock
     bedrock: {
-      ...commonDefaults.bedrock,
       knowledgeBaseName: `${environment}-ragchat-knowledge-base`,
       dataSourceName: `${environment}-ragchat-datasource`,
       s3BucketName: `${environment}-ragchat-kb-source`,
+      embeddingModel: 'amazon.titan-embed-text-v2:0',
+      modelRegion: 'us-west-2',
+      imageGenerationRegion: 'us-east-1',
+      chunkingStrategy: {
+        type: 'HIERARCHICAL' as const,
+        maxParentTokens: 3000,
+        maxChildTokens: 1000,
+        overlapTokens: 60,
+      },
     },
-    
+
     // DynamoDB設定
     dynamodb: {
       tableName: `${environment}-ragchat-app-table`,
@@ -305,9 +294,9 @@ export function createConfig(environment: Environment): EnvironmentConfig {
       projectName: `${environment}-ragchat-frontend-build`,
       sourceBucketName: `${environment}-ragchat-codebuild-source`,
       serviceRoleName: `${environment}-ragchat-codebuild-role`,
-      environmentType: commonDefaults.codebuild.environmentType,
-      computeType: commonDefaults.codebuild.computeType,
-      buildTimeout: commonDefaults.codebuild.buildTimeout,
+      environmentType: 'LINUX_CONTAINER',
+      computeType: 'BUILD_GENERAL1_MEDIUM',
+      buildTimeout: 60,
     },
     
     // CDK出力キー名（新規追加）
@@ -342,11 +331,32 @@ export function createConfig(environment: Environment): EnvironmentConfig {
       },
     },
     tags: {
-      ...commonDefaults.tags,
+      Project: 'ragchat-app',
+      ManagedBy: 'cdk',
       Environment: environment,
     },
   };
 }
+
+
+// CORS許可オリジンを環境別に取得
+function getCorsOrigins(environment: Environment): string[] {
+  const origins: string[] = [];
+  
+  // 開発環境のみローカル環境を許可
+  if (environment === 'dev') {
+    origins.push('http://localhost:3000', 'http://localhost:5173');
+  }
+  
+  // 各環境のドメイン
+  const domainConfig = domainConfigs[environment];
+  if (domainConfig?.domainName) {
+    origins.push(`https://${domainConfig.domainName}`);
+  }
+  
+  return origins;
+}
+
 
 /**
  * 環境を検証して取得する関数

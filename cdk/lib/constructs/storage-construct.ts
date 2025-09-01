@@ -45,7 +45,7 @@ export class StorageConstruct extends Construct {
           s3.HttpMethods.DELETE,
           s3.HttpMethods.HEAD,
         ],
-        allowedOrigins: ['*'],
+        allowedOrigins: config.cors.allowedOrigins,
         exposedHeaders: ['ETag'],
         maxAge: 3000,
       }],

@@ -53,7 +53,7 @@ export class LambdaConstruct extends Construct {
       handler: 'index.handler',
       runtime: lambda.Runtime.NODEJS_22_X,
       role: roles.lambdaPromptImagesRole,
-      timeout: Duration.seconds(60),
+      timeout: Duration.seconds(300),
       memorySize: 128,
       logRetention: logs.RetentionDays.ONE_WEEK,
       environment: {
@@ -68,7 +68,7 @@ export class LambdaConstruct extends Construct {
       handler: 'index.handler',
       runtime: lambda.Runtime.NODEJS_22_X,
       role: roles.lambdaS3ImagesRole,
-      timeout: Duration.seconds(60),
+      timeout: Duration.seconds(300),
       memorySize: 128,
       logRetention: logs.RetentionDays.ONE_WEEK,
       environment: {
@@ -83,7 +83,7 @@ export class LambdaConstruct extends Construct {
       handler: 'index.handler',
       runtime: lambda.Runtime.NODEJS_22_X,
       role: roles.lambdaCognitoSESRole,
-      timeout: Duration.seconds(60),
+      timeout: Duration.seconds(300),
       memorySize: 128,
       logRetention: logs.RetentionDays.ONE_WEEK,
       environment: {
@@ -99,7 +99,7 @@ export class LambdaConstruct extends Construct {
       handler: 'index.handler',
       runtime: lambda.Runtime.NODEJS_22_X,
       role: roles.lambdaCognitoSESRole,
-      timeout: Duration.seconds(60),
+      timeout: Duration.seconds(300),
       memorySize: 128,
       logRetention: logs.RetentionDays.ONE_WEEK,
       environment: {
@@ -115,11 +115,11 @@ export class LambdaConstruct extends Construct {
       handler: 'index.handler',
       runtime: lambda.Runtime.NODEJS_22_X,
       role: roles.lambdaGenerateRole,
-      timeout: Duration.seconds(60),
+      timeout: Duration.seconds(300),
       memorySize: 256,
       logRetention: logs.RetentionDays.ONE_WEEK,
       environment: {
-        BEDROCK_AWS_REGION: config.bedrock.imageGenerationRegion,
+        BEDROCK_GENIMAGE_AWS_REGION : config.bedrock.imageGenerationRegion,
         S3_BUCKET_NAME: promptImagesBucket.bucketName,
       },
     });
@@ -129,9 +129,9 @@ export class LambdaConstruct extends Construct {
       invokeMode: lambda.InvokeMode.BUFFERED,
       cors: {
         allowCredentials: false,
-        allowedHeaders: ['*'],
-        allowedMethods: [lambda.HttpMethod.ALL],
-        allowedOrigins: ['*'],
+        allowedHeaders: ['content-type', 'authorization'],
+        allowedMethods: [lambda.HttpMethod.POST],
+        allowedOrigins: config.cors.allowedOrigins,
       },
     });
 
@@ -142,7 +142,7 @@ export class LambdaConstruct extends Construct {
       handler: 'app.lambda_handler',
       runtime: lambda.Runtime.PYTHON_3_13,
       role: roles.lambdaGetChatRole,
-      timeout: Duration.seconds(60),
+      timeout: Duration.seconds(300),
       memorySize: 128,
       logRetention: logs.RetentionDays.ONE_WEEK,
       environment: {
@@ -157,7 +157,7 @@ export class LambdaConstruct extends Construct {
       handler: 'index.handler',
       runtime: lambda.Runtime.NODEJS_22_X,
       role: roles.lambdaGetChatRole,
-      timeout: Duration.seconds(60),
+      timeout: Duration.seconds(300),
       memorySize: 128,
       logRetention: logs.RetentionDays.ONE_WEEK,
       environment: {
@@ -172,7 +172,7 @@ export class LambdaConstruct extends Construct {
       handler: 'index.handler',
       runtime: lambda.Runtime.NODEJS_22_X,
       role: roles.lambdaGenerateRole,
-      timeout: Duration.seconds(60),
+      timeout: Duration.seconds(300),
       memorySize: 128,
       logRetention: logs.RetentionDays.ONE_WEEK,
       environment: {
@@ -189,9 +189,9 @@ export class LambdaConstruct extends Construct {
       invokeMode: lambda.InvokeMode.RESPONSE_STREAM,
       cors: {
         allowCredentials: false,
-        allowedHeaders: ['*'],
-        allowedMethods: [lambda.HttpMethod.ALL],
-        allowedOrigins: ['*'],
+        allowedHeaders: ['content-type', 'authorization','Cache-Control','Connection'],
+        allowedMethods: [lambda.HttpMethod.POST],
+        allowedOrigins: config.cors.allowedOrigins,
       },
     });
 
@@ -202,7 +202,7 @@ export class LambdaConstruct extends Construct {
       handler: 'app.lambda_handler',
       runtime: lambda.Runtime.PYTHON_3_13,
       role: roles.lambdaGetChatRole,
-      timeout: Duration.seconds(60),
+      timeout: Duration.seconds(300),
       memorySize: 128,
       logRetention: logs.RetentionDays.ONE_WEEK,
       environment: {

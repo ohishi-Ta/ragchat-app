@@ -36,7 +36,7 @@ export class ApiGatewayConstruct extends Construct {
     this.httpApi = new apigatewayv2.HttpApi(this, 'RagAppHttpApi', {
       apiName: config.apiGateway.httpApiName,
       corsPreflight: {
-        allowOrigins: ['*'],
+        allowOrigins: config.cors.allowedOrigins,
         allowMethods: [
           apigatewayv2.CorsHttpMethod.GET,
           apigatewayv2.CorsHttpMethod.POST,
