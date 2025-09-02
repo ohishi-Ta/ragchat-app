@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { LuSendHorizontal, LuPaperclip, LuSquare } from 'react-icons/lu';
 import TextareaAutosize from 'react-textarea-autosize';
-import type { ChatMode } from '../../types/chat';
+import type { ChatMode, ModelType } from '../../types/chat';
 import type { FileAttachment, UploadProgress } from '../../types/file';
 import FilePreview from '../ui/FilePreview';
 
@@ -12,6 +12,7 @@ interface MessageInputProps {
   onStopGeneration?: () => void;
   isLoading: boolean;
   mode: ChatMode;
+  model: ModelType;
   onModeChange: (mode: ChatMode) => void;
   attachedFile: FileAttachment | null;
   onFileAttach: (file: File) => void;
@@ -26,6 +27,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
   onStopGeneration,
   isLoading,
   mode,
+  model,
   onModeChange,
   attachedFile,
   onFileAttach,
@@ -78,6 +80,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
   const handleAttachClick = () => {
     fileInputRef.current?.click();
   };
+
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -176,13 +179,15 @@ const MessageInput: React.FC<MessageInputProps> = ({
         <button
           className="attach-icon-button"
           onClick={handleAttachClick}
-          disabled={isLoading || uploadProgress.isUploading || !!attachedFile || mode !== 'general'}
+          disabled={isLoading || uploadProgress.isUploading || !!attachedFile || mode !== 'general' || model.includes('gpt-oss')}
           title={
             mode !== 'general' 
               ? "通常生成AI利用モードで添付可能です" 
+              : model.includes('gpt-oss')
+              ? "gpt-ossモデルではファイル添付できません"
               : uploadProgress.isUploading 
               ? "ファイル処理中です" 
-              : "ファイルを添付（最大3.75MB）"
+              : "ファイルを添付（画像最大10MB・PDF最大4.5MB）"
           }
         >
           <LuPaperclip />

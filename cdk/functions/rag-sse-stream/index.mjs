@@ -2,17 +2,20 @@ import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
 import { BedrockRuntimeClient, ConverseStreamCommand } from "@aws-sdk/client-bedrock-runtime";
 import { BedrockAgentRuntimeClient, RetrieveCommand } from "@aws-sdk/client-bedrock-agent-runtime";
+import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 
 // AWSクライアントの初期化
 const dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION });
 const dynamodb = DynamoDBDocumentClient.from(dynamoClient);
 const bedrockRuntime = new BedrockRuntimeClient({ region: process.env.BEDROCK_AWS_REGION });
 const bedrockAgentRuntime = new BedrockAgentRuntimeClient({ region: process.env.KB_AWS_REGION });
+const s3Client = new S3Client({ region: process.env.AWS_REGION });
 
 // 環境変数
 const CHAT_TABLE_NAME = process.env.DYNAMODB_TABLE_NAME;
 const KNOWLEDGE_BASE_ID = process.env.KNOWLEDGE_BASE_ID;
 const BEDROCK_AWS_REGION = process.env.BEDROCK_AWS_REGION;
+const S3_BUCKET_NAME = process.env.S3_BUCKET_NAME;
 
 // モデルマッピング
 const MODEL_MAPPING = {
@@ -23,6 +26,86 @@ const MODEL_MAPPING = {
     'gpt-oss-20b': 'openai.gpt-oss-20b-1:0',
     'gpt-oss-120b': 'openai.gpt-oss-120b-1:0',
 };
+
+// S3から画像を読み込み、Bedrock形式に変換
+async function loadImageFromS3(s3Key, fileType) {
+    try {
+        console.log(`[DEBUG] S3から画像を読み込み: ${s3Key}`);
+        
+        const getObjectCommand = new GetObjectCommand({
+            Bucket: S3_BUCKET_NAME,
+            Key: s3Key
+        });
+        
+        const response = await s3Client.send(getObjectCommand);
+        const imageBytes = await response.Body.transformToByteArray();
+        
+        // ファイルタイプから画像フォーマットを抽出
+        const imageFormat = fileType.replace('image/', '');
+        
+        console.log(`[DEBUG] S3画像読み込み成功: ${s3Key}, サイズ: ${imageBytes.length} bytes`);
+        
+        // Bedrock制限チェック
+        const MAX_IMAGE_SIZE = 3.75 * 1024 * 1024; // 3.75MB
+        if (imageBytes.length > MAX_IMAGE_SIZE) {
+            const errorMsg = `画像サイズがBedrock制限(3.75MB)を超過: ${imageBytes.length} bytes > ${MAX_IMAGE_SIZE} bytes`;
+            console.error(`[ERROR] ${errorMsg}`);
+            throw new Error(errorMsg);
+        }
+        
+        return {
+            image: {
+                format: imageFormat,
+                source: {
+                    bytes: imageBytes
+                }
+            }
+        };
+    } catch (error) {
+        console.error(`[ERROR] S3画像読み込みエラー (${s3Key}):`, error);
+        throw new Error(`画像の読み込みに失敗しました: ${error.message}`);
+    }
+}
+
+// 不要な関数を削除しました
+
+// S3からPDFを読み込み、Bedrock形式に変換
+async function loadDocumentFromS3(s3Key, fileName) {
+    try {
+        console.log(`[DEBUG] S3からPDFを読み込み: ${s3Key}`);
+        
+        const getObjectCommand = new GetObjectCommand({
+            Bucket: S3_BUCKET_NAME,
+            Key: s3Key
+        });
+        
+        const response = await s3Client.send(getObjectCommand);
+        const pdfBytes = await response.Body.transformToByteArray();
+        
+        console.log(`[DEBUG] S3 PDF読み込み成功: ${s3Key}, サイズ: ${pdfBytes.length} bytes`);
+        
+        // PDF用の制限チェック  
+        const MAX_PDF_SIZE = 3.75 * 1024 * 1024; // 3.75MB
+        if (pdfBytes.length > MAX_PDF_SIZE) {
+            const errorMsg = `PDFサイズがBedrock制限(3.75MB)を超過: ${pdfBytes.length} bytes > ${MAX_PDF_SIZE} bytes`;
+            console.error(`[ERROR] ${errorMsg}`);
+            throw new Error(errorMsg);
+        }
+        
+        return {
+            document: {
+                format: 'pdf',
+                name: 'doc',
+                source: {
+                    bytes: pdfBytes
+                }
+            }
+        };
+    } catch (error) {
+        console.error(`[ERROR] S3 PDF読み込みエラー (${s3Key}):`, error);
+        throw new Error(`PDFの読み込みに失敗しました: ${error.message}`);
+    }
+}
 
 // JWTトークンからユーザーIDを抽出
 function extractUserIdFromToken(token) {
@@ -92,7 +175,7 @@ function convertDynamoToConverseMessages(dynamoMessages) {
                 content.push({
                     document: {
                         format: 'pdf',
-                        name: msg.attachment.fileName || 'document.pdf',
+                        name: 'doc',
                         source: {
                             bytes: Buffer.from(msg.attachment.data, 'base64')
                         }
@@ -211,6 +294,7 @@ export const handler = awslambda.streamifyResponse(async (event, responseStream,
                 const userMessageId = body.user_message_id;
                 const assistantMessageId = body.assistant_message_id;
                 
+                
                 if (!userMessageId || !assistantMessageId) {
                     console.error('[ERROR] メッセージIDが不足');
                     sendErrorResponse(responseStream, 'Message IDs are required');
@@ -224,32 +308,68 @@ export const handler = awslambda.streamifyResponse(async (event, responseStream,
                 }
                 
                 const historyMessages = await getChatHistory(chatId, userId);
-                console.log(`[DEBUG] 取得した履歴メッセージ数: ${historyMessages.length}`);
                 
                 // 添付ファイル処理
                 let processedAttachment = null;
                 if (attachment) {
                     mode = 'general';
                     
-                    if (attachment.source.type === 'image') {
-                        processedAttachment = {
-                            image: {
-                                format: attachment.source.media_type.split('/')[1],
-                                source: {
-                                    bytes: Buffer.from(attachment.source.data, 'base64')
-                                }
+                    // S3アップロードファイルの場合
+                    if (attachment.s3Key) {
+                        console.log('[DEBUG] S3アップロードファイルを処理:', attachment.s3Key);
+                        
+                        if (attachment.source?.media_type?.startsWith('image/')) {
+                            try {
+                                processedAttachment = await loadImageFromS3(attachment.s3Key, attachment.source.media_type);
+                            } catch (error) {
+                                console.error('[ERROR] S3画像読み込み失敗:', error);
+                                responseStream.write(formatSSEEvent('error', `画像の読み込みに失敗しました: ${error.message}`));
+                                responseStream.write(formatSSEEvent('end', 'Stream ended due to error'));
+                                responseStream.end();
+                                return;
                             }
-                        };
-                    } else if (attachment.source.type === 'document') {
-                        processedAttachment = {
-                            document: {
-                                format: 'pdf',
-                                name: attachment.fileName || 'document.pdf',
-                                source: {
-                                    bytes: Buffer.from(attachment.source.data, 'base64')
-                                }
+                        } else if (attachment.source?.media_type === 'application/pdf') {
+                            // PDFの場合：S3から読み込み
+                            try {
+                                processedAttachment = await loadDocumentFromS3(attachment.s3Key, attachment.fileName);
+                            } catch (error) {
+                                console.error('[ERROR] S3 PDF読み込み失敗:', error);
+                                responseStream.write(formatSSEEvent('error', `PDFの読み込みに失敗しました: ${error.message}`));
+                                responseStream.write(formatSSEEvent('end', 'Stream ended due to error'));
+                                responseStream.end();
+                                return;
                             }
-                        };
+                        }
+                    }
+                    // Base64データの場合（既存の処理）
+                    else if (attachment.source?.data) {
+                        if (attachment.source.type === 'image') {
+                            processedAttachment = {
+                                image: {
+                                    format: attachment.source.media_type.split('/')[1],
+                                    source: {
+                                        bytes: Buffer.from(attachment.source.data, 'base64')
+                                    }
+                                }
+                            };
+                        } else if (attachment.source.type === 'document') {
+                            processedAttachment = {
+                                document: {
+                                    format: 'pdf',
+                                    name: 'doc',
+                                    source: {
+                                        bytes: Buffer.from(attachment.source.data, 'base64')
+                                    }
+                                }
+                            };
+                        }
+                    }
+                    else {
+                        console.error('[ERROR] 添付ファイルに必要なデータ（s3Keyまたはsource.data）がありません');
+                        responseStream.write(formatSSEEvent('error', '添付ファイルのデータが不正です'));
+                        responseStream.write(formatSSEEvent('end', 'Stream ended due to error'));
+                        responseStream.end();
+                        return;
                     }
                 }
                 
@@ -357,6 +477,7 @@ export const handler = awslambda.streamifyResponse(async (event, responseStream,
                 if (systemPrompt) {
                     converseRequest.system = [{ text: systemPrompt }];
                 }
+                
                 
                 // Converse Stream APIを呼び出し
                 const converseCommand = new ConverseStreamCommand(converseRequest);
@@ -494,7 +615,8 @@ export const handler = awslambda.streamifyResponse(async (event, responseStream,
         
     } catch (error) {
         console.error('[ERROR] Fatal error:', error);
-        responseStream.write(formatSSEEvent('error', error.message));
+        console.error('[ERROR] Error stack:', error.stack);
+        responseStream.write(formatSSEEvent('error', `Fatal error: ${error.message}`));
         responseStream.write(formatSSEEvent('end', 'Stream ended due to fatal error'));
         responseStream.end();
     }

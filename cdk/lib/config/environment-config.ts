@@ -112,7 +112,7 @@ export interface EnvironmentConfig {
     trailBucketName: string,
   },
   
-  // CodeBuild設定（新規追加）
+  // CodeBuild設定
   codebuild: {
     projectName: string;
     sourceBucketName: string;
@@ -122,7 +122,7 @@ export interface EnvironmentConfig {
     buildTimeout: number;
   };
   
-  // CDK出力キー名（新規追加）
+  // CDK出力キー名
   outputs: {
     apiGatewayHttpApiUrl: string;
     cognitoUserPoolId: string;
@@ -166,8 +166,8 @@ const domainConfigs: Record<Environment, { domainName: string; certificateArn: s
     certificateArn: 'arn:aws:acm:us-east-1:794038219704:certificate/5ba2604f-f890-4e71-8aa4-338a32731728'
   },
   stg: {
-    domainName: 'stg.ai.cpinfo.jp', 
-    certificateArn: 'arn:aws:acm:us-east-1:794038219704:certificate/7d2d02e3-c835-491a-b616-50b55f738943'
+    domainName: 'stg.ragchat.jp', 
+    certificateArn: 'arn:aws:acm:us-east-1:794038219704:certificate/2ae24a06-6096-4ae1-9a25-ab97a9f8e16a'
   },
   prod: {
     domainName: 'ai.cpinfo.jp',
@@ -203,7 +203,7 @@ export function createConfig(environment: Environment): EnvironmentConfig {
       },
     },
     
-    // DB
+    // DB設定
     aurora: {
       databaseName: `${environment}_ragchat_db`,
       masterUsername: 'bedrockadmin',
@@ -222,7 +222,7 @@ export function createConfig(environment: Environment): EnvironmentConfig {
       },
     },
 
-    // SG
+    // SG設定
     security: {
       enableVpcFlowLogs: false,
       allowedCidrBlocks: ['10.0.0.0/16'],
@@ -234,7 +234,7 @@ export function createConfig(environment: Environment): EnvironmentConfig {
       allowedOrigins: getCorsOrigins(environment),
     },
 
-    // Bedrock
+    // Bedrock設定
     bedrock: {
       knowledgeBaseName: `${environment}-ragchat-knowledge-base`,
       dataSourceName: `${environment}-ragchat-datasource`,
@@ -289,7 +289,7 @@ export function createConfig(environment: Environment): EnvironmentConfig {
       trailBucketName: `${environment}-ragchat-cloudtrail-cognito-logs`,
     },
     
-    // CodeBuild設定（新規追加）
+    // CodeBuild設定
     codebuild: {
       projectName: `${environment}-ragchat-frontend-build`,
       sourceBucketName: `${environment}-ragchat-codebuild-source`,
@@ -299,7 +299,7 @@ export function createConfig(environment: Environment): EnvironmentConfig {
       buildTimeout: 60,
     },
     
-    // CDK出力キー名（新規追加）
+    // CDK出力キー名
     outputs: {
       apiGatewayHttpApiUrl: 'ApiGatewayHttpApiUrl',
       cognitoUserPoolId: 'CognitoUserPoolId',

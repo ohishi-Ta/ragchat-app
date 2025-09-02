@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import type { FileAttachment } from '../types/file';
-import { fileApi } from '../services/fileApi';
-import { compressImage, validateFile } from '../utils/fileUtils';
+import { imageUploadApi } from '../services/imageUploadApi';
+import { autoCompressImage, createPreviewUrl } from '../utils/imageCompressor';
+import { getErrorMessage } from '../utils/errorUtils';
 
 export const useFileUpload = () => {
   const [attachedFile, setAttachedFile] = useState<FileAttachment | null>(null);
@@ -16,87 +17,72 @@ export const useFileUpload = () => {
       setUploadProgress(0);
       
       // ファイル検証
-      const validation = validateFile(file);
+      const validation = imageUploadApi.validateFile(file);
       if (!validation.isValid) {
         throw new Error(validation.error);
       }
 
       setUploadProgress(10);
       
-      let base64Result: string;
-      let s3Result: string;
+      // プレビューURL生成
+      const previewUrl = await createPreviewUrl(file);
       
+      setUploadProgress(20);
+
+      let fileToUpload = file;
+      
+      // ファイル種別による処理分岐
       if (file.type.startsWith('image/')) {
-        // 画像の場合: 並行処理（オリジナルBase64 + 圧縮版S3保存）
-        const [originalBase64, compressedData] = await Promise.all([
-          // 1. オリジナルBase64変換（Bedrock送信用）
-          new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-              const result = e.target?.result as string;
-              const base64Data = result.split(',')[1];
-              resolve(base64Data);
-            };
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-          }),
+        // 画像の場合：Bedrock制限(5MB)対応の圧縮
+        const compressionResult = await autoCompressImage(file);
+        if (compressionResult) {
+          fileToUpload = compressionResult.file;
+          console.log(`画像圧縮: ${file.size} → ${compressionResult.compressedSize}`);
           
-          // 2. 画像圧縮（S3保存用）
-          compressImage(file, 800, 0.7)
-        ]);
-        
-        setUploadProgress(60);
-        
-        // 圧縮版をS3にアップロード
-        const { uploadUrl, s3Key } = await fileApi.getPresignedUrl(file.name, 'image/jpeg');
-        await fileApi.uploadToS3(compressedData.blob, uploadUrl);
-        
-        base64Result = originalBase64;
-        s3Result = s3Key;
-        
-      } else {
-        // PDFの場合: 従来通り
-        const [originalBase64, s3Key] = await Promise.all([
-          new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-              const result = e.target?.result as string;
-              const base64Data = result.split(',')[1];
-              resolve(base64Data);
-            };
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-          }),
-          
-          (async () => {
-            const { uploadUrl, s3Key } = await fileApi.getPresignedUrl(file.name, file.type);
-            await fileApi.uploadToS3(file, uploadUrl);
-            return s3Key;
-          })()
-        ]);
-        
-        base64Result = originalBase64;
-        s3Result = s3Key;
+          // 圧縮後もBedrock制限を確認
+          const bedrockValidation = imageUploadApi.validateForBedrock(fileToUpload);
+          if (!bedrockValidation.isValid) {
+            throw new Error(bedrockValidation.error);
+          }
+        }
+      } else if (file.type === 'application/pdf') {
+        // PDFの場合：そのまま使用（圧縮なし）
+        console.log(`PDF処理: ${file.name}, サイズ: ${file.size}`);
       }
-      
+
+      setUploadProgress(40);
+
+      // S3アップロード
+      const presignedData = await imageUploadApi.getPresignedUrl({
+        fileName: fileToUpload.name,
+        fileType: fileToUpload.type,
+        fileSize: fileToUpload.size
+      });
+
+      setUploadProgress(70);
+
+      await imageUploadApi.uploadToS3(fileToUpload, presignedData.uploadUrl, fileToUpload.type);
+
       setUploadProgress(90);
       
-      // ファイル情報を保持
+      // FileAttachmentオブジェクト作成（S3キーのみ、Base64データなし）
       const newAttachment: FileAttachment = {
-        fileName: file.name,
-        fileType: file.type,
-        size: file.size,
-        data: base64Result,      // Bedrock送信用（オリジナル）
-        s3Key: s3Result,         // 履歴保存用（圧縮版またはオリジナル）
-        displayUrl: `data:${file.type};base64,${base64Result}`
+        fileName: fileToUpload.name,
+        fileType: fileToUpload.type,
+        size: fileToUpload.size,
+        s3Key: presignedData.s3Key,
+        displayUrl: previewUrl
       };
       
       setAttachedFile(newAttachment);
       setUploadProgress(100);
 
+      console.log('ファイル添付完了:', presignedData.s3Key);
+
     } catch (error) {
       console.error('ファイル処理エラー:', error);
-      setUploadError(error instanceof Error ? error.message : 'ファイルの処理に失敗しました');
+      const errorMessage = getErrorMessage(error);
+      setUploadError(errorMessage);
     } finally {
       setIsUploading(false);
       setTimeout(() => {

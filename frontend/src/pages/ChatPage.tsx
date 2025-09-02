@@ -173,6 +173,7 @@ function ChatPage({ user, signOut }: ChatPageProps) {
         onSendMessage={handleSendPrompt}
         onStopGeneration={handleStopGeneration}
         mode={mode}
+        model={model}
         onModeChange={setMode} // 🎯 useLocalStorageのsetterを直接使用
         onToggleSidebar={toggleMobileSidebar}
         isMobileSidebarOpen={isMobileSidebarOpen}

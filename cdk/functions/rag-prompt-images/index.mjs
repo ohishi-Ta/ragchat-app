@@ -1,8 +1,20 @@
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-const s3Client = new S3Client({ region: process.env.AWS_REGION });
+const s3Client = new S3Client({ region: process.env.AWS_REGION || 'ap-northeast-1' });
 const S3_BUCKET_NAME = process.env.S3_BUCKET_NAME;
+const URL_EXPIRATION = 3600; // 1時間
+
+const ALLOWED_FILE_TYPES = [
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'application/pdf'
+];
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB制限
 
 // JWTトークンからユーザーIDを抽出
 function extractUserIdFromToken(token) {
@@ -62,22 +74,41 @@ export const handler = async (event) => {
         }
         
         const body = JSON.parse(event.body);
-        const { fileName, fileType } = body;
+        const { fileName, fileType, fileSize } = body;
         
-        // ファイルタイプのバリデーション
-        const allowedTypes = [
-            'image/jpeg', 'image/png', 'image/gif', 'image/webp',
-            'application/pdf'
-        ];
-        
-        if (!allowedTypes.includes(fileType)) {
+        // 必須フィールドの検証
+        if (!fileName || !fileType) {
             return {
                 statusCode: 400,
                 headers: {
                     'Access-Control-Allow-Origin': '*',
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ error: 'Unsupported file type' })
+                body: JSON.stringify({ error: 'Missing required fields: fileName and fileType' })
+            };
+        }
+        
+        // ファイルタイプのバリデーション
+        if (!ALLOWED_FILE_TYPES.includes(fileType)) {
+            return {
+                statusCode: 400,
+                headers: {
+                    'Access-Control-Allow-Origin': '*',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ error: `Invalid file type. Allowed types: ${ALLOWED_FILE_TYPES.join(', ')}` })
+            };
+        }
+        
+        // ファイルサイズの検証
+        if (fileSize && fileSize > MAX_FILE_SIZE) {
+            return {
+                statusCode: 400,
+                headers: {
+                    'Access-Control-Allow-Origin': '*',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ error: `File size exceeds maximum allowed size of ${MAX_FILE_SIZE / 1024 / 1024}MB` })
             };
         }
         
@@ -103,10 +134,19 @@ export const handler = async (event) => {
         });
         
         const uploadUrl = await getSignedUrl(s3Client, command, { 
-            expiresIn: 3600 // 1時間の有効期限
+            expiresIn: URL_EXPIRATION
         });
         
-        console.log('Presigned URL generated successfully');
+        // 有効期限の計算
+        const expiresAt = Date.now() + (URL_EXPIRATION * 1000);
+        
+        console.log('Presigned URL generated successfully:', {
+            userId,
+            fileName,
+            fileType,
+            s3Key,
+            expiresAt: new Date(expiresAt).toISOString()
+        });
         
         return {
             statusCode: 200,
@@ -117,7 +157,12 @@ export const handler = async (event) => {
             body: JSON.stringify({
                 uploadUrl,
                 s3Key,
-                expiresIn: 3600
+                expiresIn: URL_EXPIRATION,
+                expiresAt,
+                method: 'PUT',
+                headers: {
+                    'Content-Type': fileType
+                }
             })
         };
         

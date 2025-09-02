@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { LuMenu, LuX } from 'react-icons/lu';
-import type { Message, ChatMode } from '../../types/chat';
+import type { Message, ChatMode, ModelType } from '../../types/chat';
 import type { FileAttachment, UploadProgress } from '../../types/file';
 import type { SearchResult } from '../../types/search';
 import MessageList from '../features/MessageList';
@@ -16,6 +16,7 @@ interface MainContentProps {
   onSendMessage: () => void;
   onStopGeneration?: () => void;
   mode: ChatMode;
+  model: ModelType;
   onModeChange: (newMode: ChatMode) => void;
   onToggleSidebar?: () => void;
   isMobileSidebarOpen?: boolean;
@@ -41,6 +42,7 @@ const MainContent: React.FC<MainContentProps> = ({
   onSendMessage,
   onStopGeneration,
   mode,
+  model,
   onModeChange,
   onToggleSidebar,
   isMobileSidebarOpen = false,
@@ -99,6 +101,7 @@ const MainContent: React.FC<MainContentProps> = ({
             onStopGeneration={onStopGeneration}
             isLoading={isLoading}
             mode={mode}
+            model={model}
             onModeChange={onModeChange}
             attachedFile={attachedFile}
             onFileAttach={onFileAttach}

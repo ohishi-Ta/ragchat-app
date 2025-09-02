@@ -139,7 +139,7 @@ export const useChat = (user: any) => {
     // 現在のストリーミング情報を保存
     currentStreamingMessageIdRef.current = assistantMessageId;
 
-    // Lambda関数用の添付ファイルペイロード（S3キー含む）
+    // Lambda関数用の添付ファイルペイロード（S3キー対応）
     let attachmentPayload = null;
     if (currentFile) {
       if (currentFile.fileType === 'application/pdf') {
@@ -150,7 +150,7 @@ export const useChat = (user: any) => {
           source: {
             type: 'document',
             media_type: currentFile.fileType,
-            data: currentFile.data,
+            ...(currentFile.data && { data: currentFile.data })
           },
         };
       } else if (currentFile.fileType.startsWith('image/')) {
@@ -161,7 +161,7 @@ export const useChat = (user: any) => {
           source: {
             type: 'image',
             media_type: currentFile.fileType,
-            data: currentFile.data,
+            ...(currentFile.data && { data: currentFile.data })
           },
         };
       } else {

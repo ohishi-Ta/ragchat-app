@@ -173,7 +173,7 @@ export class LambdaConstruct extends Construct {
       runtime: lambda.Runtime.NODEJS_22_X,
       role: roles.lambdaGenerateRole,
       timeout: Duration.seconds(300),
-      memorySize: 128,
+      memorySize: 512,
       logRetention: logs.RetentionDays.ONE_WEEK,
       environment: {
         BEDROCK_AWS_REGION: config.bedrock.modelRegion,

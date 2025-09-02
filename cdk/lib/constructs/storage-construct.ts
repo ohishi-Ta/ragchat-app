@@ -2,6 +2,7 @@
 
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { RemovalPolicy } from 'aws-cdk-lib';
@@ -46,12 +47,19 @@ export class StorageConstruct extends Construct {
           s3.HttpMethods.HEAD,
         ],
         allowedOrigins: config.cors.allowedOrigins,
-        exposedHeaders: ['ETag'],
+        exposedHeaders: ['ETag', 'x-amz-server-side-encryption', 'x-amz-request-id', 'x-amz-id-2'],
         maxAge: 3000,
+      }],
+      lifecycleRules: [{
+        id: 'delete-old-uploads',
+        enabled: true,
+        prefix: 'uploads/',
+        expiration: cdk.Duration.days(30),
       }],
       removalPolicy: config.environment === 'dev' 
         ? RemovalPolicy.DESTROY 
         : RemovalPolicy.RETAIN,
+      autoDeleteObjects: config.environment === 'dev',
     });
 
     // タグ設定
